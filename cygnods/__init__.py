@@ -52,6 +52,10 @@ class CygnoDataset():
             'particles' : self.event_count if self._particles_saved else 0,
             'descriptions' : self.experiment_count,
         }
+        self.classes = {}
+        path_items = self.config.items("classes")
+        for name, val in path_items:
+            self.classes[name.upper()] = val
 
         # Digest detector variables
         self.x_dim = self.config.get('detector', 'x_dim')
@@ -159,3 +163,4 @@ class CygnoDataset():
 
     def list_all_experiments(self):
         return [ex.split('.')[0]  for ex in os.listdir(self.desc_path) if 'json' in ex]
+
