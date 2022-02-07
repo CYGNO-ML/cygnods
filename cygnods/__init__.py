@@ -4,6 +4,7 @@ import os
 import cv2
 import json
 import numpy as np
+import configparser
 from pathlib import Path
 
 IMAGES_FOLDER_NAME = 'images'
@@ -18,17 +19,56 @@ class CygnoDataset():
         if path is None:
             raise ValueError("The value of path can't be None")
 
-        # Create all directories if there aren't
+        # Create all directories if there aren't          
         p = Path(path)
         p.mkdir(parents=True, exist_ok=True)
+        
 
         # Check the given path for an existing dataset
         if not self._dataset_exists_on_path(p):
             #TODO: Add an auto download dataset function here 
             raise ValueError(f"No valid dataset was found on {path}.")
-            
+    
+    def _digest_config_file(self, ini_path):
+        self.config = configparser.ConfigParser()
+        self.config.read(ini_path)
 
+        # Digest version variables
+        self.version = self.config.get('version', 'ver')
+        self.date = self.config.get('version', 'date')
+
+        # Digest summary variables
+        self.experiment_count = self.config.get('summary', 'experiments')
+        self.event_count = self.config.get('summary', 'events')
+
+        # Digest store-status variables
+        self._images_saved = self.config.get('stored', 'images')
+        self._tseries_saved = self.config.get('stored', 'tseries')
+        self._particles_saved = self.config.get('stored', 'particles')
+
+        # Digest detector variables
+        self.x_dim = self.config.get('detector', 'x_dim')
+        self.y_dim = self.config.get('detector', 'y_dim')
+        self.z_dim = self.config.get('detector', 'z_dim')
+        self.units = self.config.get('detector', 'units')
+
+        # Digest images variables
+        self.x_pix = self.config.get('images', 'x_dim')
+        self.y_pix = self.config.get('images', 'y_dim')
+
+        # Digest tseries variables
+        self.tf = self.config.get('tseries', 'tf')
+        self.dt = self.config.get('tseries', 'dt')
+
+        
     def _dataset_exists_on_path(self, path):
+
+        # Check for the metadata file
+        ini_path = path / 'metadata.ini'
+        if not ini_path.exists():
+            raise ValueError("There is no metadata.ini in the specified path")
+
+        self._digest_config_file(ini_path)
 
         # Checks if a folder exists and is not empty
         def folder_there_and_not_empty(base_path, folder_name, ignore_empty=False):
