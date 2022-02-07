@@ -38,13 +38,20 @@ class CygnoDataset():
         self.date = self.config.get('version', 'date')
 
         # Digest summary variables
-        self.experiment_count = self.config.get('summary', 'experiments')
-        self.event_count = self.config.get('summary', 'events')
+        self.experiment_count = self.config.getint('summary', 'experiments')
+        self.event_count = self.config.getint('summary', 'events')
 
         # Digest store-status variables
-        self._images_saved = self.config.get('stored', 'images')
-        self._tseries_saved = self.config.get('stored', 'tseries')
-        self._particles_saved = self.config.get('stored', 'particles')
+        self._images_saved = self.config.getboolean('stored', 'images')
+        self._tseries_saved = self.config.getboolean('stored', 'tseries')
+        self._particles_saved = self.config.getboolean('stored', 'particles')
+
+        self._data_count = {
+            'images' : self.experiment_count if self._images_saved else 0,
+            'tseries' : self.experiment_count if self._tseries_saved else 0,
+            'particles' : self.event_count if self._particles_saved else 0,
+            'descriptions' : self.experiment_count,
+        }
 
         # Digest detector variables
         self.x_dim = self.config.get('detector', 'x_dim')
@@ -60,6 +67,16 @@ class CygnoDataset():
         self.tf = self.config.get('tseries', 'tf')
         self.dt = self.config.get('tseries', 'dt')
 
+    # Checks if a folder exists and contains all that it should
+    def _check_folder_integrity(self, base_path, folder_name, glob_str='*'):
+        print(f'Analyzing {folder_name}')
+        folder_path = base_path / folder_name
+        if folder_path.exists() and folder_path.is_dir():
+            generated = self._data_count[folder_name]
+            stored = len(list(folder_path.glob(glob_str)))
+            if stored == generated:
+                return folder_path
+            print(f'Folder {folder_name} is missing data files')
         
     def _dataset_exists_on_path(self, path):
 
@@ -70,18 +87,11 @@ class CygnoDataset():
 
         self._digest_config_file(ini_path)
 
-        # Checks if a folder exists and is not empty
-        def folder_there_and_not_empty(base_path, folder_name, ignore_empty=False):
-            folder_path = base_path / folder_name
-            if folder_path.exists() and folder_path.is_dir():
-                if ignore_empty or any(folder_path.iterdir()):
-                    return folder_path
-
         # Check all the subfolders
-        self.cmos_path = folder_there_and_not_empty(path, IMAGES_FOLDER_NAME)
-        self.pmt_path = folder_there_and_not_empty(path, TIME_SERIES_FOLDER_NAME, ignore_empty=True)
-        self.desc_path = folder_there_and_not_empty(path, DESC_FOLDER_NAME)
-        self.particles_path = folder_there_and_not_empty(path, PARTICLES_FOLDER_NAME)
+        self.cmos_path = self._check_folder_integrity(path, IMAGES_FOLDER_NAME, '*.png')
+        self.pmt_path = self._check_folder_integrity(path, TIME_SERIES_FOLDER_NAME, '*.npy')
+        self.desc_path = self._check_folder_integrity(path, DESC_FOLDER_NAME, '*.json')
+        self.particles_path = self._check_folder_integrity(path, PARTICLES_FOLDER_NAME, '*.txt')
         self.path = path
         
         return bool(self.cmos_path and self.pmt_path and self.desc_path and self.particles_path)
