@@ -100,8 +100,8 @@ class CygnoDataset():
         
         return bool(self.cmos_path and self.pmt_path and self.desc_path and self.particles_path)
     
-    def load_experiment(self, experiment_id):
-        trajs, t_classes = self.load_experiment_trajs(experiment_id=experiment_id)
+    def load_experiment(self, experiment_id, rescaled=False):
+        trajs, t_classes = self.load_experiment_trajs(experiment_id=experiment_id, rescaled=rescaled)
         cmos = self.load_experiment_cmos(experiment_id=experiment_id)
         pmt = self.load_experiment_pmt(experiment_id=experiment_id)
         return trajs, t_classes, cmos, pmt
@@ -112,7 +112,7 @@ class CygnoDataset():
             desc = json.load(json_file)
         return desc
 
-    def unpack_traj(traj):
+    def unpack_traj(self, traj):
         shape = traj.shape
         if len(shape) == 1:
             x = [traj[0]]
@@ -128,16 +128,44 @@ class CygnoDataset():
             t = traj[:, 4]
         return x, y, z, en, t
 
-    def load_traj(self, p_file):
+    def _rescale_traj(self, traj, scale):
+        x, y, z, en, t = self.unpack_traj(traj)
+        x = np.around(x * scale)/scale  
+        y = np.around(y * scale)/scale  
+        z = np.around(z * scale)/scale  
+
+        x_new = [x[0]]
+        y_new = [y[0]]
+        z_new = [z[0]]
+        en_new = [en[0]]
+        t_new = [t[0]]
+
+        if len(x) > 1:
+            for j in range(len(x)-1):
+                i = j + 1
+                if x_new[-1] == x[i] and y_new[-1] == y[i] and z_new[-1] == z[i]:
+                    en_new[-1] += en[i]
+                else:
+                    x_new.append(x[i])
+                    y_new.append(y[i])
+                    z_new.append(z[i])
+                    en_new.append(en[i])
+                    t_new.append(t[i]) 
+        return np.array([x_new, y_new, z_new, en_new, t_new]).T
+
+    def load_traj(self, p_file, rescaled=False):
         p = np.loadtxt(p_file, ndmin=2)
+        if rescaled:
+            scale = self.x_pix / self.x_dim
+            p = self._rescale_traj(p, scale)
         return p
 
-    def load_experiment_trajs(self, experiment_id):
+    def load_experiment_trajs(self, experiment_id, rescaled=False):
         desc = self.load_experiment_description(experiment_id)
         particles, p_types = [], []
         for p in desc["particles_info"]:
             p_file = os.path.join(self.path, p["file"])
-            particles.append(self.load_traj(p_file))
+            particles.append(self.load_traj(p_file, rescaled=rescaled))
             p_types.append(p["type"])
         return particles, p_types
     
@@ -152,11 +180,11 @@ class CygnoDataset():
         except FileNotFoundError:
             return None
 
-    def load_all_trajs(self):
+    def load_all_trajs(self, rescaled=False):
         experiment_ids = self.list_all_experiments()
         p, p_type = [], []
         for e_id in experiment_ids:
-            pi, pti = self.load_experiment_trajs(e_id)
+            pi, pti = self.load_experiment_trajs(e_id, rescaled=rescaled)
             p += pi
             p_type += pti
         return p, p_type
@@ -179,4 +207,3 @@ class CygnoDataset():
 
     def list_all_experiments(self):
         return [ex.split('.')[0]  for ex in os.listdir(self.desc_path) if 'json' in ex]
-
