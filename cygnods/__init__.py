@@ -112,6 +112,22 @@ class CygnoDataset():
             desc = json.load(json_file)
         return desc
 
+    def unpack_traj(traj):
+        shape = traj.shape
+        if len(shape) == 1:
+            x = [traj[0]]
+            y = [traj[1]]
+            z = [traj[2]]
+            en = [traj[3]]
+            t = [traj[4]]
+        else:
+            x = traj[:, 0]
+            y = traj[:, 1]
+            z = traj[:, 2]
+            en = traj[:, 3]
+            t = traj[:, 4]
+        return x, y, z, en, t
+
     def load_traj(self, p_file):
         p = np.loadtxt(p_file, ndmin=2)
         return p
