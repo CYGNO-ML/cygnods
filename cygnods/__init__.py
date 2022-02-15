@@ -13,7 +13,7 @@ DESC_FOLDER_NAME = 'descriptions'
 PARTICLES_FOLDER_NAME = 'particles'
 
 class CygnoDataset():
-    def __init__(self, path, cmos="CMOS", desc="DESCRIPTION", part="PARTICLES", pmt="PMT"):
+    def __init__(self, path):
 
         # Check the path is not None
         if path is None:
@@ -58,18 +58,18 @@ class CygnoDataset():
             self.classes[name.upper()] = val
 
         # Digest detector variables
-        self.x_dim = self.config.get('detector', 'x_dim')
-        self.y_dim = self.config.get('detector', 'y_dim')
-        self.z_dim = self.config.get('detector', 'z_dim')
+        self.x_dim = self.config.getfloat('detector', 'x_dim')
+        self.y_dim = self.config.getfloat('detector', 'y_dim')
+        self.z_dim = self.config.getfloat('detector', 'z_dim')
         self.units = self.config.get('detector', 'units')
 
         # Digest images variables
-        self.x_pix = self.config.get('images', 'x_dim')
-        self.y_pix = self.config.get('images', 'y_dim')
+        self.x_pix = self.config.getint('images', 'x_dim')
+        self.y_pix = self.config.getint('images', 'y_dim')
 
         # Digest tseries variables
-        self.tf = self.config.get('tseries', 'tf')
-        self.dt = self.config.get('tseries', 'dt')
+        self.tf = self.config.getfloat('tseries', 'tf')
+        self.dt = self.config.getfloat('tseries', 'dt')
 
     # Checks if a folder exists and contains all that it should
     def _check_folder_integrity(self, base_path, folder_name, glob_str='*'):
