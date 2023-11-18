@@ -1,37 +1,54 @@
 import random
+
 import numpy as np
 
-class DatasetAnnotator():
+
+class DatasetAnnotator:
     """docstring for Annotator"""
+
     def __init__(self, dataset):
         self.dataset = dataset
-        
+
     def _compute_bounding_boxes(self, experiment_id, padding=10):
         particles, p_types = self.dataset.load_experiment_trajs(experiment_id)
         boxes = []
         for i, p in enumerate(particles):
             x = p[:, 0]
             y = p[:, 1]
-            xmin = max(0, int(np.min(x) * 2304/350) - padding)    #TODO: Read this from metadata
-            ymin = max(0, int(np.min(y) * 2304/350) - padding)    #TODO: Read this from metadata
-            xmax = min(int(np.max(x) * 2304/350) + padding, 2304) #TODO: Read this from metadata
-            ymax = min(int(np.max(y) * 2304/350) + padding, 2304) #TODO: Read this from metadata
+            xmin = max(
+                0, int(np.min(x) * 2304 / 350) - padding
+            )  # TODO: Read this from metadata
+            ymin = max(
+                0, int(np.min(y) * 2304 / 350) - padding
+            )  # TODO: Read this from metadata
+            xmax = min(
+                int(np.max(x) * 2304 / 350) + padding, 2304
+            )  # TODO: Read this from metadata
+            ymax = min(
+                int(np.max(y) * 2304 / 350) + padding, 2304
+            )  # TODO: Read this from metadata
             class_id = p_types[i]
             boxes.append((xmin, ymin, xmax, ymax, class_id))
         return boxes
- 
-    def _normalize_bounding_box(self, box):        
-        img_width = 2304 #TODO: Read this from metadata
-        img_height = 2304 #TODO: Read this from metadata
-        xmin, ymin, xmax, ymax, class_id = box 
-        return xmin/img_width, ymin/img_height, xmax/img_width, ymax/img_height, class_id
 
-    def _convert_bounding_box_to_xywh(self, box):        
-        xmin, ymin, xmax, ymax, class_id = box 
+    def _normalize_bounding_box(self, box):
+        img_width = 2304  # TODO: Read this from metadata
+        img_height = 2304  # TODO: Read this from metadata
+        xmin, ymin, xmax, ymax, class_id = box
+        return (
+            xmin / img_width,
+            ymin / img_height,
+            xmax / img_width,
+            ymax / img_height,
+            class_id,
+        )
+
+    def _convert_bounding_box_to_xywh(self, box):
+        xmin, ymin, xmax, ymax, class_id = box
         width = xmax - xmin
         height = ymax - ymin
-        x_center  = xmax + xmin
-        y_center  = ymax + ymin
+        x_center = (xmax + xmin) / 2
+        y_center = (ymax + ymin) / 2
         return x_center, y_center, width, height, class_id
 
     def _process_bounding_boxes(self, boxes, normalize=True, center=True):
@@ -47,10 +64,10 @@ class DatasetAnnotator():
     def _export_yolov5_label(self, experiment_id):
         boxes = self._compute_bounding_boxes(experiment_id)
         boxes = self._process_bounding_boxes(boxes)
-        flines = ''
+        flines = ""
         for x_center, y_center, width, height, class_id in boxes:
-            flines += f'{class_id} {x_center} {y_center} {width} {height}\n'
-        label_name = self.label_path / f'{experiment_id}.txt'
+            flines += f"{class_id} {x_center} {y_center} {width} {height}\n"
+        label_name = self.label_path / f"{experiment_id}.txt"
         with open(label_name, "w") as label_file:
             label_file.write(flines)
 
@@ -62,23 +79,27 @@ class DatasetAnnotator():
     def _generate_yolov5_labels(self, label_folder_name):
         self._create_yolov5_label_folder(label_folder_name)
         all_experiments = self.dataset.list_all_experiments()
-        for experiment_id in all_experiments:
+        for i, experiment_id in enumerate(all_experiments):
             self._export_yolov5_label(experiment_id)
+            print(
+                f"Exported {i+1}/{len(all_experiments)} labels. ({(i+1)/len(all_experiments)*100:.2f}%)",
+                end="\r",
+            )
 
-    def _export_yolov5_imagelist(self, image_list, file_name, prefix=''):
-        text = ''
+    def _export_yolov5_imagelist(self, image_list, file_name, prefix=""):
+        text = ""
         for image in image_list:
             text += f"{prefix}{image}\n"
 
         file_path = self.dataset.path / file_name
         # Save the text files with the images lists
         with open(file_path, "w") as text_file:
-            text_file.write(text) 
+            text_file.write(text)
 
     def _read_image_list(self, shuffled=True):
         # Read all image filenames
         all_experiments = self.dataset.list_all_experiments()
-        all_images = [f'{experiment_id}.png' for experiment_id in all_experiments]
+        all_images = [f"{experiment_id}.png" for experiment_id in all_experiments]
 
         # Shuffle the image list before split it
         if shuffled:
@@ -100,16 +121,19 @@ class DatasetAnnotator():
 
         # Split according the given parameters
         train_images = all_images[:val_count]
-        test_images = all_images[val_count:val_count+train_count]
-        val_images = all_images[val_count+train_count:]
+        test_images = all_images[val_count : val_count + train_count]
+        val_images = all_images[val_count + train_count :]
 
         # Export each image list to its own text file
-        self._export_yolov5_imagelist(train_images, 'images_train.txt', prefix='./images/')
-        self._export_yolov5_imagelist(test_images, 'images_test.txt', prefix='./images/')
-        self._export_yolov5_imagelist(val_images, 'images_val.txt', prefix='./images/')
+        self._export_yolov5_imagelist(
+            train_images, "images_train.txt", prefix="./images/"
+        )
+        self._export_yolov5_imagelist(
+            test_images, "images_test.txt", prefix="./images/"
+        )
+        self._export_yolov5_imagelist(val_images, "images_val.txt", prefix="./images/")
 
-
-    def _generate_yolov5_yaml(self, file_name='cygno.yaml'):
+    def _generate_yolov5_yaml(self, file_name="cygno.yaml"):
         classes = list(self.dataset.classes.keys())
         Template = f"""
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
@@ -125,12 +149,9 @@ names: {classes}
         file_path = self.dataset.path / file_name
         # Save the text files with the images lists
         with open(file_path, "w") as text_file:
-            text_file.write(Template) 
+            text_file.write(Template)
 
-    def create_yolov5_annotations(self, train, test, val, label_folder_name='labels'):
+    def create_yolov5_annotations(self, train, test, val, label_folder_name="labels"):
         self._generate_yolov5_labels(label_folder_name)
         self._generate_yolov5_split(train, test, val)
         self._generate_yolov5_yaml()
-
-
-
